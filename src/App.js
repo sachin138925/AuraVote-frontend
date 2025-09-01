@@ -880,42 +880,106 @@ function HomePage() {
 // --- Results Page (No changes needed) ---
 function ResultsPage() {
   const [data, setData] = useState(null);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    axios.get(`${API}/api/elections/results`)
-      .then(res => setData(res.data))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+  const fetchResults = useCallback(async (electionId = null) => {
+    setLoading(true);
+    setError('');
+    try {
+      const url = electionId 
+        ? `${API}/api/elections/results?id=${electionId}` 
+        : `${API}/api/elections/results`;
+      const res = await axios.get(url);
+      setData(res.data);
+    } catch (err) {
+      setData(null);
+      setError(err.response?.data?.msg || 'Could not load election results.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (loading) return <div className="container py-20 text-center"><div className="spinner mx-auto"></div><p className="mt-4">Loading results...</p></div>;
-  if (!data) return <div className="container py-20 text-center"><h2 className="text-2xl font-bold">No Results Available</h2><p className="mt-2 text-muted">No election results are available yet.</p></div>;
+  useEffect(() => {
+    // Fetch default results on initial load
+    fetchResults();
 
-  const sorted = [...(data.results || [])].sort((a,b) => b.votes - a.votes);
-  const total = sorted.reduce((s,c) => s + c.votes, 0);
+    // Fetch the history list for the dropdown
+    const fetchHistory = async () => {
+      try {
+        const res = await axios.get(`${API}/api/elections/history`);
+        setHistory(res.data);
+      } catch {
+        console.error("Could not load election history.");
+      }
+    };
+    fetchHistory();
+  }, [fetchResults]);
 
-  const exportCSV = () => {
-    const csv = Papa.unparse(sorted.map(r => ({ Candidate: r.name, Party: r.party, Votes: r.votes })));
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'election_results.csv'; a.click();
+  if (loading) return <div className="container py-20 text-center"><div className="spinner mx-auto"></div><p className="mt-4">Loading Results...</p></div>;
+  if (error) return <div className="container py-20 text-center"><h2 className="page-title">No Results Available</h2><p className="mt-2 text-muted">{error}</p></div>;
+  if (!data) return null;
+
+  const sortedCandidates = [...(data.results || [])].sort((a, b) => b.votes - a.votes);
+  const totalVotes = sortedCandidates.reduce((sum, c) => sum + c.votes, 0);
+
+  const getStatusChip = (status) => {
+    if (status === 'Live') return <span className="status-chip status-live">Live</span>;
+    if (status === 'Finished' || status === 'Closed') return <span className="status-chip status-finished">Finished</span>;
+    return null;
   };
 
+  const exportCSV = () => {
+    const csvData = Papa.unparse(sortedCandidates.map(r => ({ Candidate: r.name, Party: r.party, Votes: r.votes })));
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `${data.title.replace(/\s+/g, '_')}_results.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.text(data.title, 14, 16);
-    doc.autoTable({ startY: 22, head: [['Candidate', 'Party', 'Votes']], body: sorted.map(r => [r.name, r.party, r.votes]) });
-    doc.save('election_results.pdf');
+    doc.autoTable({ 
+      startY: 22, 
+      head: [['Candidate', 'Party', 'Votes']], 
+      body: sortedCandidates.map(r => [r.name, r.party, r.votes]) 
+    });
+    doc.save(`${data.title.replace(/\s+/g, '_')}_results.pdf`);
   };
 
   return (
     <div className="container">
-      <div className="mb-8"><h2 className="text-3xl font-bold mb-2">{data.title} - Final Results</h2><p className="text-muted">Election results are now available</p></div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <h1 className="page-title">{data.title}</h1>
+          {getStatusChip(data.status)}
+        </div>
+        <div className="history-dropdown">
+          <select onChange={(e) => fetchResults(e.target.value)} defaultValue="">
+            <option value="" disabled>View History</option>
+            {history.map(h => (
+              <option key={h.onChainId} value={h.onChainId}>{h.title}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <p className="page-description mb-8">
+        {data.status === 'Live' ? 'Live results are currently being tallied.' : 'The final, verified results are now available.'}
+      </p>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card>
           <div className="card-body">
             <h3 className="card-title mb-4">Vote Summary</h3>
-            <div className="results-summary"><div className="vote-count">{total}</div><div className="vote-label">Total Votes Cast</div></div>
+            <div className="results-summary">
+              <div className="vote-count">{totalVotes}</div>
+              <div className="vote-label">Total Votes Cast</div>
+            </div>
             <div className="mt-6 flex gap-3">
               <Button onClick={exportCSV} className="flex-1">Export CSV</Button>
               <Button onClick={exportPDF} className="flex-1">Export PDF</Button>
@@ -926,23 +990,64 @@ function ResultsPage() {
           <div className="card-body">
             <h3 className="card-title mb-4">Vote Distribution</h3>
             <div className="chart-container">
-              <Bar data={{labels: sorted.map(s => s.name), datasets:[{label:'Votes', data: sorted.map(s => s.votes), backgroundColor: '#4f46e5' }] }} options={{responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }}, scales: { y: { beginAtZero: true, ticks: { precision: 0 }}}}}/>
+              <Bar 
+                data={{
+                  labels: sortedCandidates.map(s => s.name), 
+                  datasets:[{
+                    label:'Votes', 
+                    data: sortedCandidates.map(s => s.votes), 
+                    backgroundColor: 'rgba(138, 43, 226, 0.7)',
+                    borderColor: 'rgba(138, 43, 226, 1)',
+                    borderWidth: 1
+                  }] 
+                }} 
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: { 
+                    y: { beginAtZero: true, ticks: { precision: 0, color: 'var(--text-muted)' }, grid: { color: 'var(--border-color)' } },
+                    x: { ticks: { color: 'var(--text-muted)' }, grid: { display: false } }
+                  }
+                }}
+              />
             </div>
           </div>
         </Card>
       </div>
-      <Card className="mt-6">
+      
+      <Card>
         <div className="card-body">
           <h3 className="card-title mb-4">Detailed Results</h3>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Candidate</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Votes</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{sorted.map((candidate, index) => (<tr key={index}><td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900">{candidate.name}</div></td><td className="px-6 py-4 whitespace-nowrap"><div className="text-sm text-gray-900">{candidate.party}</div></td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{candidate.votes}</td><td className="px-6 py-4 whitespace-nowrap"><div className="text-sm text-gray-900">{total > 0 ? ((candidate.votes / total) * 100).toFixed(1) : '0'}%</div></td></tr>))}</tbody></table>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Candidate</th>
+                  <th>Party</th>
+                  <th>Votes</th>
+                  <th>Percentage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedCandidates.map((candidate, index) => (
+                  <tr key={index}>
+                    <td>{candidate.name}</td>
+                    <td>{candidate.party}</td>
+                    <td>{candidate.votes}</td>
+                    <td>
+                      {totalVotes > 0 ? ((candidate.votes / totalVotes) * 100).toFixed(1) : '0'}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </Card>
     </div>
   );
 }
-
 
 // --- Profile Page ---
 function ProfilePage() {
