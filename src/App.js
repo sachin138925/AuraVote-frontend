@@ -710,38 +710,52 @@ function RegisterPage() {
   return (
     <div className="container">
       <div className="max-w-md mx-auto py-12">
-        <Card header={<div className="text-center"><h2 className="card-title">Create an Account</h2><p className="text-muted">Join the voting platform</p></div>}>
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
-              <input name="name" className="form-control" placeholder="John Doe" value={form.name} onChange={handleChange} required />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <input name="email" className="form-control" placeholder="your@email.com" type="email" value={form.email} onChange={handleChange} required />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <input name="password" className="form-control" placeholder="••••••••" type="password" value={form.password} onChange={handleChange} required />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Account Type</label>
-              <div className="flex gap-4 mt-2">
-                <label className="flex items-center"><input type="radio" name="role" value="user" checked={form.role === 'user'} onChange={handleChange} className="mr-2" />Voter</label>
-                <label className="flex items-center"><input type="radio" name="role" value="admin" checked={form.role === 'admin'} onChange={handleChange} className="mr-2" />Administrator</label>
-              </div>
-            </div>
-            {form.role === 'admin' && (
+        <Card>
+          <div className="card-header text-center">
+            <h2 className="card-title">Create an Account</h2>
+            <p className="text-muted">Join the voting platform</p>
+          </div>
+          <div className="card-body">
+            <form onSubmit={handleRegister} className="space-y-4">
               <div className="form-group">
-                <label className="form-label">Admin Invite Code</label>
-                <input name="inviteCode" className="form-control" placeholder="Enter invite code" value={form.inviteCode} onChange={handleChange} required />
+                <label className="form-label">Full Name</label>
+                <input name="name" className="form-control" placeholder="John Doe" value={form.name} onChange={handleChange} required />
               </div>
-            )}
-            {RECAPTCHA_KEY && <div className="flex justify-center pt-2"><ReCAPTCHA sitekey={RECAPTCHA_KEY} onChange={setRecaptchaToken} /></div>}
-            <div className="flex justify-end pt-2">
-              <Button type="submit" disabled={loading} className="w-full">{loading ? <span className="spinner"></span> : 'Create Account'}</Button>
-            </div>
-          </form>
+              <div className="form-group">
+                <label className="form-label">Email Address</label>
+                <input name="email" className="form-control" placeholder="your@email.com" type="email" value={form.email} onChange={handleChange} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input name="password" className="form-control" placeholder="••••••••" type="password" value={form.password} onChange={handleChange} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Account Type</label>
+                <div className="flex gap-4 mt-2">
+                  <label className="flex items-center"><input type="radio" name="role" value="user" checked={form.role === 'user'} onChange={handleChange} className="mr-2" />Voter</label>
+                  <label className="flex items-center"><input type="radio" name="role" value="admin" checked={form.role === 'admin'} onChange={handleChange} className="mr-2" />Administrator</label>
+                </div>
+              </div>
+              {form.role === 'admin' && (
+                <div className="form-group">
+                  <label className="form-label">Admin Invite Code</label>
+                  <input name="inviteCode" className="form-control" placeholder="Enter invite code" value={form.inviteCode} onChange={handleChange} required />
+                </div>
+              )}
+              {RECAPTCHA_KEY && <div className="flex justify-center pt-2"><ReCAPTCHA sitekey={RECAPTCHA_KEY} onChange={setRecaptchaToken} /></div>}
+              <div className="pt-2">
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? <span className="spinner"></span> : 'Create Account'}
+                </Button>
+              </div>
+            </form>
+          </div>
+          <div className="card-footer text-center text-sm">
+            <span>Already have an account? </span>
+            <Link to="/login" className="font-semibold text-primary hover:underline">
+              Sign in here
+            </Link>
+          </div>
         </Card>
       </div>
     </div>
