@@ -883,12 +883,16 @@ function ResultsPage() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedHistoryId, setSelectedHistoryId] = useState(''); // NEW: To control the dropdown value
 
   const fetchResults = useCallback(async (electionId = null) => {
     setLoading(true);
     setError('');
+    // NEW: Update the dropdown's selected value
+    setSelectedHistoryId(electionId || '');
     try {
-      const url = electionId 
+      // NEW: Use 'default' to signal we want the main results page
+      const url = electionId && electionId !== 'default'
         ? `${API}/api/elections/results?id=${electionId}` 
         : `${API}/api/elections/results`;
       const res = await axios.get(url);
@@ -903,7 +907,7 @@ function ResultsPage() {
 
   useEffect(() => {
     // Fetch default results on initial load
-    fetchResults();
+    fetchResults('default'); // Pass 'default' to signify initial load
 
     // Fetch the history list for the dropdown
     const fetchHistory = async () => {
@@ -960,11 +964,16 @@ function ResultsPage() {
           {getStatusChip(data.status)}
         </div>
         <div className="history-dropdown">
-          <select onChange={(e) => fetchResults(e.target.value)} defaultValue="">
-            <option value="" disabled>View History</option>
-            {history.map(h => (
-              <option key={h.onChainId} value={h.onChainId}>{h.title}</option>
-            ))}
+          <select 
+            onChange={(e) => fetchResults(e.target.value)} 
+            value={selectedHistoryId} // Controlled by state now
+          >
+            <option value="default">View Current Results</option>
+            <optgroup label="Finished Elections">
+              {history.map(h => (
+                <option key={h.onChainId} value={h.onChainId}>{h.title}</option>
+              ))}
+            </optgroup>
           </select>
         </div>
       </div>
