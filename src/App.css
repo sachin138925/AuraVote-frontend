@@ -1,38 +1,389 @@
-.App {
-  text-align: center;
+/* client/src/App.css */
+/* --- The Vibrant & Bold UI Overhaul --- */
+/* A high-effort, professional, and visually stunning interface for a modern DApp. */
+
+/* 1. FONT IMPORT */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+
+/* 2. GLOBAL VARIABLES & THEME SETUP */
+:root {
+  --font-main: 'Inter', sans-serif;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  
+  /* The color palette is the core of the new design */
+  --primary-glow-start: #8a2be2; /* BlueViolet */
+  --primary-glow-end: #4169e1;   /* RoyalBlue */
+  --danger: #e53e3e;
+  
+  /* Switched to a single, powerful dark theme as the default */
+  --background: #0d1117; /* GitHub's dark background */
+  --card: #161b22;       /* GitHub's dark card color */
+  --text: #c9d1d9;       /* GitHub's dark text color */
+  --text-muted: #8b949e;
+  --border-color: #30363d;
+  --border-hover: #8b949e;
+  --shadow-color: rgba(0, 0, 0, 0.4);
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+/* 3. BASE & BODY STYLES */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+body {
+  margin: 0;
+  font-family: var(--font-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background);
+  color: var(--text);
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+}
+
+h1, h2, h3, h4 {
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.05em; /* Tighter letter spacing for a modern look */
+}
+
+.container {
+  max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem;
+}
+
+/* 4. NAVBAR */
+.navbar {
+  background-color: rgba(13, 17, 23, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 0;
+  position: sticky; top: 0; z-index: 50;
+  animation: fadeIn 0.5s ease-out;
+}
+.navbar-brand {
+  font-size: 1.75rem;
+  font-weight: 900;
+  text-decoration: none;
+  background: linear-gradient(45deg, var(--primary-glow-start), var(--primary-glow-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.navbar-nav {
+  display: flex; align-items: center; gap: 1rem;
+}
+.nav-link {
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+.nav-link:hover, .nav-link.active {
+  color: #ffffff;
+}
+.theme-toggle {
+  display: none; /* Removed for this single-theme design */
+}
+.wallet-balance {
+  background-color: var(--card);
+  color: var(--text-muted);
+  font-weight: 600; font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+/* 5. CARD & CONTAINER STYLES */
+.card {
+  background-color: var(--card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 30px -15px var(--shadow-color);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  animation: fadeIn 0.5s ease-out forwards;
+}
+.card:hover {
+  transform: translateY(-5px);
+  border-color: var(--border-hover);
+}
+.card-header, .card-body, .card-footer {
+  padding: 2rem;
+}
+.card-header {
+  border-bottom: 1px solid var(--border-color);
+}
+.card-footer {
+  background-color: transparent;
+  border-top: 1px solid var(--border-color);
+}
+.card-title {
+  font-size: 1.5rem;
+}
+
+/* 6. BUTTONS - The star of the show */
+.btn {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary {
+  background: linear-gradient(45deg, var(--primary-glow-start), var(--primary-glow-end));
+  color: white;
+  box-shadow: 0 4px 20px 0 rgba(138, 43, 226, 0.4);
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 7px 30px 0 rgba(65, 105, 225, 0.5);
+}
+.btn-outline {
+  background-color: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-color);
+}
+.btn-outline:hover:not(:disabled) {
+  background-color: var(--card);
+  border-color: var(--text);
+}
+.btn-danger {
+  background-color: var(--danger);
   color: white;
 }
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px 0 rgba(229, 62, 62, 0.5);
+}
+.btn:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+.btn-sm { padding: 0.5rem 1rem; font-size: 0.875rem; }
 
-.App-link {
-  color: #61dafb;
+/* 7. FORMS & INPUTS */
+.form-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.form-control {
+  background-color: var(--background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  color: var(--text);
+  width: 100%;
+  font-size: 1rem;
+}
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary-glow-end);
+  box-shadow: 0 0 0 3px rgba(65, 105, 225, 0.3);
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* 8. MODALS */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(13, 17, 23, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.3s ease;
+}
+.modal-content {
+  background: var(--card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 25px 50px -12px var(--shadow-color);
+  width: 90%; max-width: 600px; max-height: 90vh;
+  display: flex; flex-direction: column;
+}
+.modal-header, .modal-body, .modal-footer {
+  padding: 1.5rem 2rem;
+}
+.modal-header {
+  border-bottom: 1px solid var(--border-color);
+}
+.modal-body { 
+  overflow-y: auto; 
+}
+.modal-footer {
+  background-color: var(--background);
+  border-top: 1px solid var(--border-color);
+  display: flex; justify-content: flex-end; gap: 0.75rem;
+}
+
+/* 9. COMPONENT-SPECIFIC STYLES */
+/* Home Page Hero */
+.page-title {
+  font-size: 3.5rem;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(45deg, #ffffff, #c9d1d9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.page-description {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  max-width: 600px;
+}
+
+/* Admin Page */
+.election-item {
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+}
+.election-item:hover {
+  background-color: var(--background);
+  border-color: var(--border-hover);
+}
+.status-open { background-color: rgba(35, 134, 54, 0.2); color: #3fb950; }
+.status-closed { background-color: rgba(215, 58, 73, 0.2); color: #f85149; }
+.election-title-clickable { cursor: pointer; }
+.election-title-clickable:hover .font-medium { 
+  color: var(--primary-glow-start);
+}
+.bscscan-link { color: var(--text-muted); transition: color 0.2s; }
+.bscscan-link:hover { color: var(--primary-glow-end); }
+
+/* ... other component styles ... */
+
+/* 10. SPINNER & UTILITIES */
+.spinner {
+  width: 1.25rem; height: 1.25rem; border: 2px solid currentColor;
+  border-right-color: transparent; border-radius: 50%;
+  animation: spin 0.75s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* ... (All other utility classes like .grid, .gap, .mb, etc. are unchanged and will work fine) ... */
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.md\:grid-cols-2 { @media (min-width: 768px) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lg\:grid-cols-3 { @media (min-width: 1024px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.gap-6 { gap: 1.5rem; }
+.gap-4 { gap: 1rem; }
+.space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+.space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem; }
+.mb-8 { margin-bottom: 2rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mt-8 { margin-top: 2rem; }
+.py-12 { padding-top: 3rem; padding-bottom: 3rem; }
+.py-20 { padding-top: 5rem; padding-bottom: 5rem; }
+.pt-2 { padding-top: 0.5rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.max-w-md { max-width: 28rem; }
+.max-w-3xl { max-width: 48rem; }
+.text-center { text-align: center; }
+.text-primary { color: var(--primary-glow-start); }
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+.text-xl { font-size: 1.25rem; }
+.text-2xl { font-size: 1.5rem; }
+.text-3xl { font-size: 1.875rem; }
+.text-4xl { font-size: 2.25rem; }
+.text-lg { font-size: 1.125rem; }
+.text-sm { font-size: 0.875rem; }
+.w-full { width: 100%; }
+.md\:w-auto { @media (min-width: 768px) { width: auto; } }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-end { justify-content: flex-end; }
+.capitalize { text-transform: capitalize; }
+.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.overflow-x-auto { overflow-x: auto; }
+.min-w-full { min-width: 100%; }
+.divide-y > :not([hidden]) ~ :not([hidden]) { border-top-width: 1px; border-color: var(--border-color); }
+.bg-gray-50 { background-color: var(--background); }
+.bg-white { background-color: var(--card); }
+.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+.text-left { text-align: left; }
+.text-xs { font-size: 0.75rem; }
+.uppercase { text-transform: uppercase; }
+.tracking-wider { letter-spacing: 0.05em; }
+.whitespace-nowrap { white-space: nowrap; }
+.bg-green-50 { background-color: rgba(35, 134, 54, 0.1); }
+.border-l-4 { border-left-width: 4px; }
+.border-green-500 { border-color: #3fb950; }
+.text-green-700 { color: #3fb950; }
+.p-4 { padding: 1rem; }
+.rounded { border-radius: 0.25rem; }
+.flex-grow { flex-grow: 1; }
+.mr-4 { margin-right: 1rem; }
+
+/* Add these new styles to the end of your App.css file */
+
+/* Admin History Table */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-table th, .admin-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table th {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.admin-table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.admin-table tbody tr:hover {
+  background-color: var(--background);
+}
+
+.actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* New Status Tags */
+.election-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.status-scheduled {
+  background-color: rgba(255, 159, 10, 0.2); /* Orange */
+  color: #ff9f0a;
+}
+.status-finished {
+  background-color: rgba(90, 85, 96, 0.2); /* Gray */
+  color: #8b949e;
 }
