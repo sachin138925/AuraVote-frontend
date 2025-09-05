@@ -11,6 +11,7 @@ import Papa from 'papaparse';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import './App.css';
+import VotingABI from './VotingABI.json';
 
 // --- Configuration and ABI ---
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -18,430 +19,6 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS || '';
 const RECAPTCHA_KEY = process.env.REACT_APP_RECAPTCHA_SITE_KEY;
 const RPC_URL = process.env.REACT_APP_RPC_URL_BSC_TESTNET;
-const VotingABI = [
-    {
-      "inputs": [],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        }
-      ],
-      "name": "OwnableInvalidOwner",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "account",
-          "type": "address"
-        }
-      ],
-      "name": "OwnableUnauthorizedAccount",
-      "type": "error"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "electionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "candidateId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "party",
-          "type": "string"
-        }
-      ],
-      "name": "CandidateAdded",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "electionId",
-          "type": "uint256"
-        }
-      ],
-      "name": "ElectionClosed",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "electionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "title",
-          "type": "string"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "startAt",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "endAt",
-          "type": "uint256"
-        }
-      ],
-      "name": "ElectionCreated",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "previousOwner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "OwnershipTransferred",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "electionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "candidateId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "voter",
-          "type": "address"
-        }
-      ],
-      "name": "Voted",
-      "type": "event"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_electionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "_name",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "_party",
-          "type": "string"
-        }
-      ],
-      "name": "addCandidate",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "_title",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "_description",
-          "type": "string"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_startAt",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_endAt",
-          "type": "uint256"
-        }
-      ],
-      "name": "createElection",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "elections",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "id",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "title",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
-          "type": "string"
-        },
-        {
-          "internalType": "uint256",
-          "name": "startAt",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "endAt",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "closed",
-          "type": "bool"
-        },
-        {
-          "internalType": "uint256",
-          "name": "nextCandidateId",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_electionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_candidateId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getCandidate",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_electionId",
-          "type": "uint256"
-        }
-      ],
-      "name": "getElectionBasic",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "nextElectionId",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "owner",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "renounceOwnership",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_electionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "_isClosed",
-          "type": "bool"
-        }
-      ],
-      "name": "toggleCloseElection",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "transferOwnership",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_electionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_candidateId",
-          "type": "uint256"
-        }
-      ],
-      "name": "vote",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    }
-  ];
 
 // --- Auth Context ---
 const AuthContext = createContext();
@@ -451,110 +28,47 @@ function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
-
-  const logout = useCallback(async () => {
-    localStorage.removeItem('token');
-    setUser(null);
-    setToken(null);
-  }, []);
-
+  const logout = useCallback(async () => { localStorage.removeItem('token'); setUser(null); setToken(null); }, []);
   useEffect(() => {
     const loadUser = async () => {
       if (!token) { setLoading(false); return; }
       try {
         const res = await axios.get(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
         setUser(res.data);
-      } catch { logout(); } finally { setLoading(false); }
+      } catch { toast.error("Your session has expired. Please log in again."); logout(); } 
+      finally { setLoading(false); }
     };
     loadUser();
   }, [token, logout]);
-
-  const login = async (email, password) => {
-    const res = await axios.post(`${API}/api/auth/login`, { email, password });
-    localStorage.setItem('token', res.data.token);
-    setToken(res.data.token);
-    setUser(res.data.user);
-  };
-
+  const login = async (email, password) => { const res = await axios.post(`${API}/api/auth/login`, { email, password }); localStorage.setItem('token', res.data.token); setToken(res.data.token); setUser(res.data.user); };
   const register = async (payload) => axios.post(`${API}/api/auth/register`, payload);
-
-  const refreshUser = async () => {
-    const tok = localStorage.getItem('token');
-    if (!tok) return;
-    try {
-      const res = await axios.get(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${tok}` } });
-      setUser(res.data);
-    } catch { logout(); }
-  };
-  return <AuthContext.Provider value={{ user, setUser, token, login, register, logout, refreshUser, loading }}>{children}</AuthContext.Provider>;
+  const refreshUser = async () => { const tok = localStorage.getItem('token'); if (!tok) return; try { const res = await axios.get(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${tok}` } }); setUser(res.data); } catch { logout(); } };
+  return ( <AuthContext.Provider value={{ user, setUser, token, login, register, logout, refreshUser, loading }}>{children}</AuthContext.Provider> );
 }
 
 // --- Wallet Helpers ---
 const getProvider = () => new ethers.JsonRpcProvider(RPC_URL);
-const getSignerContract = async () => {
-  if (!window.ethereum) throw new Error('MetaMask is not installed.');
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const signer = await provider.getSigner();
-  return { contract: new ethers.Contract(CONTRACT_ADDRESS, VotingABI, signer), signer, provider };
-};
+const getSignerContract = async () => { if (!window.ethereum) throw new Error('MetaMask is not installed.'); const provider = new ethers.BrowserProvider(window.ethereum); const signer = await provider.getSigner(); return { contract: new ethers.Contract(CONTRACT_ADDRESS, VotingABI, signer), signer, provider }; };
 
 // --- Layouts and Global Components ---
-function MainLayout() {
-  return (<><Navbar /><main className="main-content"><Outlet /></main></>);
-}
+function MainLayout() { return (<><Navbar /><main className="main-content"><Outlet /></main></>); }
 
 function Navbar() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const handleLogout = () => { logout(); toast.success('Logged out successfully'); navigate('/login'); };
-  const getNavLinkClass = (path) => location.pathname.startsWith(path) ? 'nav-link active' : 'nav-link';
-  const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'D';
-
-  return (
-    <nav className="navbar">
-      <div className="container navbar-container">
-        <Link to="/" className="navbar-brand">AuraVote</Link>
-        {user && (
-          <>
-            <div className="navbar-links">
-              <Link to="/" className={getNavLinkClass('/')}>Vote</Link>
-              <Link to="/results" className={getNavLinkClass('/results')}>Results</Link>
-              <Link to="/profile" className={getNavLinkClass('/profile')}>Profile</Link>
-              {user?.role === 'admin' && <Link to="/admin" className={getNavLinkClass('/admin')}>Admin</Link>}
-            </div>
-            <div className="navbar-actions">
-              <div className="profile-menu-container">
-                <button className="profile-avatar" onClick={() => setDropdownOpen(!dropdownOpen)}>{userInitial}</button>
-                {dropdownOpen && (
-                  <div className="profile-dropdown">
-                    <div className="dropdown-header"><span className="font-semibold">{user.name}</span><span className="text-sm text-muted">{user.email}</span></div>
-                    <Link to="/profile" className="dropdown-item" onClick={() => setDropdownOpen(false)}>Profile</Link>
-                    {user.role === 'admin' && <Link to="/admin" className="dropdown-item" onClick={() => setDropdownOpen(false)}>Admin Dashboard</Link>}
-                    <button className="dropdown-item" onClick={handleLogout}>Log out</button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </nav>
-  );
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const handleLogout = () => { logout(); toast.success('Logged out successfully'); navigate('/login'); };
+    // UPDATED: More precise check for active link to stop Vote from always glowing
+    const getNavLinkClass = (path) => {
+        if (path === '/') { return location.pathname === '/' ? 'nav-link active' : 'nav-link'; }
+        return location.pathname.startsWith(path) ? 'nav-link active' : 'nav-link';
+    };
+    const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'D';
+    return ( <nav className="navbar"><div className="container navbar-container"><Link to="/" className="navbar-brand">AuraVote</Link>{user && (<><div className="navbar-links"><Link to="/" className={getNavLinkClass('/')}>Vote</Link><Link to="/results" className={getNavLinkClass('/results')}>Results</Link><Link to="/profile" className={getNavLinkClass('/profile')}>Profile</Link>{user?.role === 'admin' && <Link to="/admin" className={getNavLinkClass('/admin')}>Admin</Link>}</div><div className="navbar-actions"><div className="profile-menu-container"><button className="profile-avatar" onClick={() => setDropdownOpen(!dropdownOpen)}>{userInitial}</button>{dropdownOpen && (<div className="profile-dropdown"><div className="dropdown-header"><span className="font-semibold">{user.name}</span><span className="text-sm text-muted">{user.email}</span></div><Link to="/profile" className="dropdown-item" onClick={() => setDropdownOpen(false)}>Profile</Link>{user.role === 'admin' && <Link to="/admin" className="dropdown-item" onClick={() => setDropdownOpen(false)}>Admin Dashboard</Link>}<button className="dropdown-item" onClick={handleLogout}>Log out</button></div>)}</div></div></>)}</div></nav> );
 }
-
-// CORRECTED InfoBox component
-const InfoBox = ({ children, title, text, icon }) => (
-  <div className="info-box">
-    {icon && <div className="info-box-icon">{icon}</div>}
-    <div className="info-box-content">
-      {title && <h3 className="info-box-title">{title}</h3>}
-      {text && <p className="info-box-text">{text}</p>}
-      {children}
-    </div>
-  </div>
-);
+  
+const InfoBox = ({ children, title, text, icon }) => ( <div className="info-box">{icon && <div className="info-box-icon">{icon}</div>}<div className="info-box-content">{title && <h3 className="info-box-title">{title}</h3>}{text && <p className="info-box-text">{text}</p>}{children}</div></div>);
 
 // --- Auth Pages ---
 function LoginPage() {
@@ -589,7 +103,6 @@ function LoginPage() {
     </div>
   );
 }
-
 function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -645,25 +158,24 @@ function HomePage() {
   const [election, setElection] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [votingFor, setVotingFor] = useState(null); // Tracks which candidate vote is in progress
 
   const fetchElectionData = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/elections/active`);
-      setElection(res.data);
+      const activeElection = res.data;
+      setElection(activeElection);
       const provider = getProvider();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, VotingABI, provider);
-      const onChainData = await contract.getElectionBasic(res.data.onChainId);
+      const onChainData = await contract.getElectionBasic(activeElection.onChainId);
       const count = Number(onChainData[6]);
-
       if (count === 0) {
         setCandidates([]);
         return;
       }
-      
-      const promises = Array.from({ length: count }, (_, i) => contract.getCandidate(res.data.onChainId, i + 1));
+      const promises = Array.from({ length: count }, (_, i) => contract.getCandidate(activeElection.onChainId, i + 1));
       const results = await Promise.all(promises);
       const formatted = results.map(c => ({ id: c[0].toString(), name: c[1], party: c[2], votes: Number(c[3]) }));
-      
       setCandidates(formatted.sort((a, b) => b.votes - a.votes));
     } catch (err) {
       setElection(null);
@@ -680,28 +192,23 @@ function HomePage() {
     }
   }, [user, fetchElectionData]);
 
-  // THIS FUNCTION IS NOW USED
   const handleVote = async (candidate) => {
-    const voteToast = toast.loading('Preparing your vote...');
+    setVotingFor(candidate.id); // Set loading state for this specific button
+    const voteToast = toast.loading(`Casting vote for ${candidate.name}...`);
     try {
       if (!user?.walletAddress) throw new Error('Please connect your wallet first.');
       if (user.hasVotedOn?.[election.onChainId]) throw new Error('You have already voted in this election.');
-      
       const { contract } = await getSignerContract();
       toast.loading('Please approve the transaction in your wallet...', { id: voteToast });
       const tx = await contract.vote(election.onChainId, candidate.id);
-      
       toast.loading('Submitting your vote to the blockchain...', { id: voteToast });
       const receipt = await tx.wait();
-
       if (!receipt.hash) throw new Error("Transaction failed after submission.");
-      
       toast.loading('Vote is on-chain! Verifying with server...', { id: voteToast });
-      await axios.post(`${API}/api/verify/vote`, 
+      await axios.post(`${API}/api/verify/vote`,
         { txHash: receipt.hash, electionId: election.onChainId, candidateId: candidate.id },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
-      
       toast.success('Your vote has been successfully recorded!', { id: voteToast });
       await refreshUser();
       await fetchElectionData();
@@ -709,18 +216,26 @@ function HomePage() {
       let message = err.reason || err.response?.data?.msg || err.message || 'An unknown error occurred.';
       if (err.code === 4001) message = 'Transaction rejected in wallet.';
       toast.error(message, { id: voteToast });
+    } finally {
+      setVotingFor(null); // Clear loading state for the button
     }
   };
 
   const totalVotes = candidates.reduce((sum, c) => sum + c.votes, 0);
+  const hasVoted = user && election && user.hasVotedOn?.[election.onChainId];
 
   const ConnectWalletPrompt = () => (
     <>
-      <div className="banner warning">Wallet Required: Please connect your MetaMask wallet to participate in voting.</div>
+      <div className="banner warning">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
+        Wallet Required: Please connect your MetaMask wallet to participate in voting.
+      </div>
       <div className="connect-wallet-card">
         <h2>Connect Wallet</h2>
         <p>Link your MetaMask wallet to participate in voting</p>
-        <button className="btn btn-primary" onClick={() => navigate('/profile/wallet')}>Connect MetaMask</button>
+        <button className="btn btn-primary" onClick={() => navigate('/profile/wallet')}>
+          Connect MetaMask
+        </button>
       </div>
     </>
   );
@@ -729,36 +244,49 @@ function HomePage() {
     if (loading) return <div className="container text-center"><div className="spinner-lg"></div></div>;
     if (!user?.walletAddress) return <ConnectWalletPrompt />;
     if (!election) return <div className="text-center"><h2>No Active Election</h2><p>There are no elections available for voting at this time.</p></div>;
-    
+
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {candidates.map((candidate, index) => {
-          const percentage = totalVotes > 0 ? (candidate.votes / totalVotes * 100) : 0;
-          return (
-            // --- FIX IS HERE: Added the onClick handler to the div ---
-            <div 
-              key={candidate.id} 
-              className={`candidate-card-vote ${index === 0 ? 'leading' : ''}`}
-              onClick={() => handleVote(candidate)} // This line makes the card clickable
-            >
-              <div className="candidate-header">
-                <div className="candidate-rank">#{index + 1}</div>
-                {index === 0 && <div className="candidate-leading-tag">Leading</div>}
+      <>
+        {hasVoted && (
+          <div className="banner success">
+            You have successfully voted in this election. Thank you for your participation!
+          </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {candidates.map((candidate, index) => {
+            const percentage = totalVotes > 0 ? (candidate.votes / totalVotes * 100) : 0;
+            const isVoting = votingFor === candidate.id;
+            return (
+              <div key={candidate.id} className={`candidate-card-vote ${index === 0 ? 'leading' : ''}`}>
+                <div className="candidate-header">
+                  <div className="candidate-rank">#{index + 1}</div>
+                  {index === 0 && <div className="candidate-leading-tag">Leading</div>}
+                </div>
+                <h3 className="candidate-name">{candidate.name}</h3>
+                <p className="candidate-party">{candidate.party}</p>
+                <div className="candidate-progress-bar"><div style={{ width: `${percentage}%` }}></div></div>
+                <div className="candidate-stats">
+                  <span>{percentage.toFixed(1)}% of total</span>
+                  <span>{candidate.votes} / {totalVotes} Votes</span>
+                </div>
+                
+                <div className="vote-button-container">
+                  <button
+                    className="btn btn-primary w-full"
+                    onClick={() => handleVote(candidate)}
+                    disabled={hasVoted || isVoting}
+                  >
+                    {isVoting ? <span className="spinner"></span> : (hasVoted ? "You Have Voted" : "Vote")}
+                  </button>
+                </div>
               </div>
-              <h3 className="candidate-name">{candidate.name}</h3>
-              <p className="candidate-party">{candidate.party}</p>
-              <div className="candidate-progress-bar"><div style={{ width: `${percentage}%` }}></div></div>
-              <div className="candidate-stats">
-                <span>{percentage.toFixed(1)}% of total</span>
-                <span>{candidate.votes} / {totalVotes} Votes</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </>
     );
   };
-  
+
   return (
     <div className="container">
       {renderContent()}
@@ -774,69 +302,97 @@ function HomePage() {
   );
 }
 
+// UPDATED ResultsPage component
 function ResultsPage() {
     const [data, setData] = useState(null);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedId, setSelectedId] = useState('current');
+    const [selectedElectionId, setSelectedElectionId] = useState('current'); 
 
     const fetchResults = useCallback(async (electionId) => {
         setLoading(true);
-        const url = electionId === 'current' ? `${API}/api/elections/results` : `${API}/api/elections/results?id=${electionId}`;
+        const url = (electionId === 'current' || !electionId) ? `${API}/api/elections/results` : `${API}/api/elections/results?id=${electionId}`;
         try {
             const res = await axios.get(url);
             setData(res.data);
-        } catch { setData(null); } 
+        } catch { setData(null); toast.error("Could not load results for this election."); } 
         finally { setLoading(false); }
     }, []);
 
     useEffect(() => {
-        fetchResults(selectedId);
-        axios.get(`${API}/api/elections/history`).then(res => setHistory(res.data)).catch(() => {});
-    }, [selectedId, fetchResults]);
+        axios.get(`${API}/api/elections/history`).then(res => setHistory(res.data)).catch(() => toast.error("Could not load election history."));
+        fetchResults('current');
+    }, [fetchResults]);
 
-    const handleDropdownChange = (e) => setSelectedId(e.target.value);
-    const handleRefresh = () => fetchResults(selectedId);
+    const handleSelectionChange = (e) => {
+        const newId = e.target.value;
+        setSelectedElectionId(newId);
+        fetchResults(newId);
+    };
 
-    const sortedCandidates = data ? [...data.results].sort((a, b) => b.votes - a.votes) : [];
-    const totalVotes = sortedCandidates.reduce((sum, c) => sum + c.votes, 0);
-
+    const handleRefresh = () => fetchResults(selectedElectionId);
     const exportCSV = () => {
-        const csvData = Papa.unparse(sortedCandidates.map(r => ({ Candidate: r.name, Party: r.party, Votes: r.votes })));
-        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute('download', `${data.title.replace(/\s+/g, '_')}_results.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-  
+            const csvData = Papa.unparse(sortedCandidates.map(r => ({ Candidate: r.name, Party: r.party, Votes: r.votes })));
+            const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', `${data.title.replace(/\s+/g, '_')}_results.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
     const exportPDF = () => {
-        const doc = new jsPDF();
-        doc.text(data.title, 14, 16);
-        doc.autoTable({ startY: 22, head: [['Rank', 'Candidate', 'Party', 'Votes']], body: sortedCandidates.map((r, i) => [i+1, r.name, r.party, r.votes]) });
-        doc.save(`${data.title.replace(/\s+/g, '_')}_results.pdf`);
-    };
+            const doc = new jsPDF();
+            doc.text(data.title, 14, 16);
+            doc.autoTable({ startY: 22, head: [['Rank', 'Candidate', 'Party', 'Votes']], body: sortedCandidates.map((r, i) => [i+1, r.name, r.party, r.votes]) });
+            doc.save(`${data.title.replace(/\s+/g, '_')}_results.pdf`);
+        };
 
     if (loading) return <div className="container text-center"><div className="spinner-lg"></div></div>;
-    if (!data) return <div className="container text-center"><h2>No Results Available</h2></div>;
-
+    
+    if (!data) return ( <div className="container text-center"><h2>No Results Available</h2><p>There are no finished or active elections to display.</p></div> );
+    
+    const sortedCandidates = [...(data.results || [])].sort((a, b) => b.votes - a.votes);
+    const totalVotes = sortedCandidates.reduce((sum, c) => sum + c.votes, 0);
     const leadingCandidate = sortedCandidates[0];
     const leadingMargin = leadingCandidate && sortedCandidates[1] ? ((leadingCandidate.votes - sortedCandidates[1].votes) / totalVotes * 100) : (totalVotes > 0 ? 100 : 0);
 
     return (
         <div className="container">
-            <div className="results-header"><h1>{data.title}</h1><div className={`status-tag ${data.status === 'Live' ? 'active' : 'closed'}`}>{data.status}</div><div className="results-header-actions"><select className="results-dropdown" value={selectedId} onChange={handleDropdownChange}><option value="current">Current Results</option>{history.map(h => <option key={h.onChainId} value={h.onChainId}>{h.title}</option>)}</select><button onClick={handleRefresh} className="btn btn-secondary">Refresh</button></div></div>
-            <div className="results-summary-grid"><div className="summary-card"><div className="summary-card-value">{totalVotes}</div><div className="summary-card-label">Total Votes</div></div><div className="summary-card"><div className="summary-card-value">{sortedCandidates.length}</div><div className="summary-card-label">Candidates</div></div><div className="summary-card"><div className="summary-card-value">{leadingMargin.toFixed(1)}%</div><div className="summary-card-label">Leading Margin</div></div><div className="summary-card"><div className={`summary-card-value ${data.status === 'Live' ? 'live' : ''}`}>{data.status}</div><div className="summary-card-label">Status</div></div></div>
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6"><div className="lg:col-span-3 card"><h3 className="card-title">Vote Distribution</h3><div style={{ height: '300px' }}><Bar data={{ labels: sortedCandidates.map(s => s.name), datasets:[{ data: sortedCandidates.map(s => s.votes), backgroundColor: ['#8B5CF6', '#3B82F6', '#10B981'], borderRadius: 4 }] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } } }}/></div></div><div className="lg:col-span-2 card"><h3 className="card-title">Export Results</h3><div className="export-buttons"><button onClick={exportCSV} className="btn btn-secondary w-full">Export as CSV</button><button onClick={exportPDF} className="btn btn-secondary w-full">Export as PDF</button><a href={`https://testnet.bscscan.com/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full">View on Blockchain</a></div></div></div>
+            <div className="results-header">
+                <h1>{data.title}</h1>
+                <div className={`status-tag ${data.status === 'Live' ? 'active' : 'closed'}`}>{data.status}</div>
+                <div className="results-header-actions">
+                    <select className="results-dropdown" value={selectedElectionId} onChange={handleSelectionChange}>
+                        <option value="current">View Current / Last Finished</option>
+                        <optgroup label="Past Elections">
+                          {history.map(h => <option key={h.onChainId} value={h.onChainId}>{h.title}</option>)}
+                        </optgroup>
+                    </select>
+                    <button onClick={handleRefresh} className="btn btn-secondary">Refresh</button>
+                </div>
+            </div>
+            <div className="results-summary-grid">
+                <div className="summary-card"><div className="summary-card-value">{totalVotes}</div><div className="summary-card-label">Total Votes</div></div><div className="summary-card"><div className="summary-card-value">{sortedCandidates.length}</div><div className="summary-card-label">Candidates</div></div><div className="summary-card"><div className="summary-card-value">{leadingMargin.toFixed(1)}%</div><div className="summary-card-label">Leading Margin</div></div><div className="summary-card"><div className={`summary-card-value ${data.status === 'Live' ? 'live' : ''}`}>{data.status}</div><div className="summary-card-label">Status</div></div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <div className="lg:col-span-3 card"><h3 className="card-title">Vote Distribution</h3><div style={{ height: '300px' }}><Bar data={{ labels: sortedCandidates.map(s => s.name), datasets:[{ data: sortedCandidates.map(s => s.votes), backgroundColor: ['#8B5CF6', '#3B82F6', '#10B981'], borderRadius: 4 }] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } } }}/></div></div>
+                <div className="lg:col-span-2 card">
+                    <h3 className="card-title">Export Results</h3>
+                    <div className="export-buttons">
+                        <button onClick={exportCSV} className="btn btn-secondary w-full">Export as CSV</button>
+                        <button onClick={exportPDF} className="btn btn-secondary w-full">Export as PDF</button>
+                        <a href={`https://testnet.bscscan.com/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full">View on Blockchain</a>
+                    </div>
+                </div>
+            </div>
             <div className="card mt-6"><h3 className="card-title">Detailed Results</h3><table className="results-table"><thead><tr><th>Rank</th><th>Candidate</th><th>Party</th><th>Votes</th><th>Percentage</th><th>Progress</th></tr></thead><tbody>{sortedCandidates.map((c, index) => { const percentage = totalVotes > 0 ? (c.votes / totalVotes * 100) : 0; return (<tr key={c.onChainId}><td><div className="rank-badge">#{index + 1}</div></td><td>{c.name}</td><td>{c.party}</td><td>{c.votes}</td><td>{percentage.toFixed(2)}%</td><td><div className="table-progress-bar-container"><div className="table-progress-bar" style={{ width: `${percentage}%` }}></div></div></td></tr>)})}</tbody></table></div>
         </div>
     );
 }
 
 
-// --- Profile Page and Tabs ---
+// UPDATED Profile Components
 function ProfilePage() {
   const { user } = useAuth();
   const location = useLocation();
@@ -930,16 +486,57 @@ function ProfileWallet() {
 }
 
 function ProfileVotingHistory() {
+    const { user } = useAuth();
     const navigate = useNavigate();
+    const [elections, setElections] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            try {
+                const res = await axios.get(`${API}/api/elections`);
+                setElections(res.data);
+            } catch { toast.error("Could not load election history."); } 
+            finally { setLoading(false); }
+        };
+        fetchHistory();
+    }, []);
+
+    if (loading) return <div className="spinner-lg mx-auto"></div>;
+
+    // Filter elections where the user has voted
+    const votedElections = elections.filter(e => user.hasVotedOn?.[e.onChainId]);
+    
+    if (votedElections.length === 0) {
+        return (
+            <div className="card text-center">
+                <div className="empty-state-icon">🕒</div>
+                <h3 className="card-title">No Voting History</h3>
+                <p>You haven't participated in any elections yet.</p>
+                <button className="btn btn-primary mt-4" onClick={() => navigate('/')}>Vote Now</button>
+            </div>
+        );
+    }
+
     return (
-        <div className="card text-center">
-            <div className="empty-state-icon">🕒</div>
-            <h3 className="card-title">No Voting History</h3>
-            <p>You haven't participated in any elections yet.</p>
-            <button className="btn btn-primary mt-4" onClick={() => navigate('/')}>Vote Now</button>
+        <div className="card">
+            <h3 className="card-title">Your Voting History</h3>
+            <div className="history-list">
+                {votedElections.map(e => (
+                    <div key={e.onChainId} className="history-item">
+                        <div className="history-item-info">
+                            <strong>{e.title}</strong>
+                            <span>Voted on: {new Date(e.endAt || e.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        {/* Navigate to the specific result page for that election */}
+                        <button className="btn btn-secondary" onClick={() => navigate(`/results?id=${e.onChainId}`)}>View Results</button>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
+
 function ProfileSettings() {
     const { user, setUser, logout } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
@@ -993,47 +590,76 @@ function ProfileSettings() {
     );
 }
 
-
-// --- Admin Page and Components ---
+// UPDATED Admin Components
 function AdminPage() {
-  const [elections, setElections] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [detailsModal, setDetailsModal] = useState(null);
-  const [activeTab, setActiveTab] = useState('active');
+    const [elections, setElections] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [detailsModal, setDetailsModal] = useState(null);
+    const [activeTab, setActiveTab] = useState('active');
 
-  const loadElections = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await axios.get(`${API}/api/elections`);
-      setElections(res.data);
-    } catch { toast.error('Failed to load elections'); }
-    setLoading(false);
-  }, []);
+    const loadElections = useCallback(async () => {
+        setLoading(true);
+        try { const res = await axios.get(`${API}/api/elections`); setElections(res.data); } 
+        catch { toast.error('Failed to load elections'); }
+        setLoading(false);
+    }, []);
 
-  useEffect(() => { loadElections(); }, [loadElections]);
+    useEffect(() => { loadElections(); }, [loadElections]);
 
-  const now = new Date();
-  const activeElections = elections.filter(e => !e.closed && (!e.endAt || new Date(e.endAt) > now));
-  const historyElections = elections.filter(e => e.closed || (e.endAt && new Date(e.endAt) <= now));
-  const totalCandidates = elections.reduce((sum, e) => sum + (e.candidates?.length || 0), 0);
+    const now = new Date();
+    // Logic is now consistent with the backend:
+    const activeElections = elections.filter(e => !e.closed && (!e.endAt || new Date(e.endAt) > now));
+    const historyElections = elections.filter(e => e.closed || (e.endAt && new Date(e.endAt) <= now));
+    const totalCandidates = elections.reduce((sum, e) => sum + (e.candidates?.length || 0), 0);
 
-  return (
-    <div className="container">
-      <div className="admin-header"><h1>Admin Dashboard</h1><button className="btn btn-primary" onClick={() => setModalOpen(true)}>+ Create Election</button></div>
-      <div className="admin-summary-grid"><div className="summary-card"><div className="summary-card-value">{elections.length}</div><div className="summary-card-label">Total Elections</div></div><div className="summary-card"><div className="summary-card-value">{activeElections.length}</div><div className="summary-card-label">Active Elections</div></div><div className="summary-card"><div className="summary-card-value">{historyElections.length}</div><div className="summary-card-label">Closed Elections</div></div><div className="summary-card"><div className="summary-card-value">{totalCandidates}</div><div className="summary-card-label">Total Candidates</div></div></div>
-      <div className="admin-tabs"><button className={activeTab === 'active' ? 'active' : ''} onClick={() => setActiveTab('active')}>Active Elections ({activeElections.length})</button><button className={activeTab === 'history' ? 'active' : ''} onClick={() => setActiveTab('history')}>Election History ({historyElections.length})</button></div>
-      <div className="admin-content">{loading ? <div className="spinner-lg"></div> : <ElectionList elections={activeTab === 'active' ? activeElections : historyElections} onViewDetails={setDetailsModal} />}</div>
-      {modalOpen && <CreateElectionModal onClose={() => setModalOpen(false)} onCreated={loadElections} />}
-      {detailsModal && <ElectionDetailsModal election={detailsModal} onClose={() => setDetailsModal(null)} />}
-    </div>
-  );
+    return (
+        <div className="container">
+            <div className="admin-header"><h1>Admin Dashboard</h1><button className="btn btn-primary" onClick={() => setModalOpen(true)}>+ Create Election</button></div>
+            <div className="admin-summary-grid"> <div className="summary-card"><div className="summary-card-value">{elections.length}</div><div className="summary-card-label">Total Elections</div></div><div className="summary-card"><div className="summary-card-value">{activeElections.length}</div><div className="summary-card-label">Active Elections</div></div><div className="summary-card"><div className="summary-card-value">{historyElections.length}</div><div className="summary-card-label">Closed Elections</div></div><div className="summary-card"><div className="summary-card-value">{totalCandidates}</div><div className="summary-card-label">Total Candidates</div></div> </div>
+            <div className="admin-tabs">
+                <button className={activeTab === 'active' ? 'active' : ''} onClick={() => setActiveTab('active')}>Active Elections ({activeElections.length})</button>
+                <button className={activeTab === 'history' ? 'active' : ''} onClick={() => setActiveTab('history')}>Election History ({historyElections.length})</button>
+            </div>
+            <div className="admin-content">
+                {loading ? <div className="spinner-lg"></div> : <ElectionList isHistory={activeTab === 'history'} elections={activeTab === 'active' ? activeElections : historyElections} onViewDetails={setDetailsModal} />}
+            </div>
+            {modalOpen && <CreateElectionModal onClose={() => setModalOpen(false)} onCreated={loadElections} />}
+            {detailsModal && <ElectionDetailsModal election={detailsModal} onClose={() => setDetailsModal(null)} />}
+        </div>
+    );
 }
 
-function ElectionList({ elections, onViewDetails }) {
+function ElectionList({ elections, onViewDetails, isHistory }) {
+    if (elections.length === 0) return <p>No elections to display in this section.</p>;
+    
+    return (
+        <div className="grid grid-cols-1 gap-6">
+            {elections.map(e => {
+                const status = e.closed ? "CLOSED" : (e.endAt && new Date(e.endAt) < new Date() ? "FINISHED" : "ACTIVE");
+                return (
+                    <div className="admin-election-card" key={e.onChainId}>
+                        <div className="admin-election-info">
+                            <h3>{e.title}</h3>
+                            <div className={`status-tag ${status !== 'ACTIVE' ? 'closed' : 'active'}`}>{status}</div>
+                            <div className="admin-election-meta"><span>On-chain ID: {e.onChainId}</span><span>Candidates: {e.candidates?.length || 0}</span><span>Total Votes: {e.votesTotal || 0}</span></div>
+                        </div>
+                        <div className="admin-election-actions">
+                            <button onClick={() => onViewDetails(e)} className="btn btn-secondary">Details</button>
+                            <a href={`https://testnet.bscscan.com/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">Blockchain</a>
+                            {/* Only show the Close button if the election is ACTUALLY active */}
+                            {status === 'ACTIVE' && <button className="btn btn-danger">Close</button>}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+/* function ElectionList({ elections, onViewDetails }) {
     if (elections.length === 0) return <p>No elections to display in this section.</p>;
     return (<div className="grid grid-cols-1 gap-6">{elections.map(e => <div className="admin-election-card" key={e.onChainId}><div className="admin-election-info"><h3>{e.title}</h3><div className={`status-tag ${!e.closed ? 'active' : 'closed'}`}>{e.closed ? "CLOSED" : "ACTIVE"}</div><div className="admin-election-meta"><span>On-chain ID: {e.onChainId}</span><span>Candidates: {e.candidates?.length || 0}</span><span>Total Votes: {e.votesTotal || 0}</span></div></div><div className="admin-election-actions"><button onClick={() => onViewDetails(e)} className="btn btn-secondary">Details</button><a href={`https://testnet.bscscan.com/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">Blockchain</a>{!e.closed && <button className="btn btn-danger">Close</button>}</div></div>)}</div>);
-}
+ */
 
 function ElectionDetailsModal({ election, onClose }) {
   return (
