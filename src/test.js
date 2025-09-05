@@ -82,7 +82,22 @@ function ResultsPage() {
 
     const handleRefresh = () => fetchResults(selectedElectionId);
     
-    // ... (exportCSV and exportPDF functions are correct)
+    const exportCSV = () => {
+                const csvData = Papa.unparse(sortedCandidates.map(r => ({ Candidate: r.name, Party: r.party, Votes: r.votes })));
+                const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.setAttribute('download', `${data.title.replace(/\s+/g, '_')}_results.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+        const exportPDF = () => {
+                const doc = new jsPDF();
+                doc.text(data.title, 14, 16);
+                doc.autoTable({ startY: 22, head: [['Rank', 'Candidate', 'Party', 'Votes']], body: sortedCandidates.map((r, i) => [i+1, r.name, r.party, r.votes]) });
+                doc.save(`${data.title.replace(/\s+/g, '_')}_results.pdf`);
+            };
 
     if (loading) return <div className="container text-center"><div className="spinner-lg"></div></div>;
     
@@ -111,9 +126,23 @@ function ResultsPage() {
                     <button onClick={handleRefresh} className="btn btn-secondary">Refresh</button>
                 </div>
             </div>
-            {/* ... (rest of the results page JSX is correct and will now render properly) ... */}
-        </div>
-    );
+            <div className="results-summary-grid">
+                            <div className="summary-card"><div className="summary-card-value">{totalVotes}</div><div className="summary-card-label">Total Votes</div></div><div className="summary-card"><div className="summary-card-value">{sortedCandidates.length}</div><div className="summary-card-label">Candidates</div></div><div className="summary-card"><div className="summary-card-value">{leadingMargin.toFixed(1)}%</div><div className="summary-card-label">Leading Margin</div></div><div className="summary-card"><div className={`summary-card-value ${data.status === 'Live' ? 'live' : ''}`}>{data.status}</div><div className="summary-card-label">Status</div></div>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                            <div className="lg:col-span-3 card"><h3 className="card-title">Vote Distribution</h3><div style={{ height: '300px' }}><Bar data={{ labels: sortedCandidates.map(s => s.name), datasets:[{ data: sortedCandidates.map(s => s.votes), backgroundColor: ['#8B5CF6', '#3B82F6', '#10B981'], borderRadius: 4 }] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } } }}/></div></div>
+                            <div className="lg:col-span-2 card">
+                                <h3 className="card-title">Export Results</h3>
+                                <div className="export-buttons">
+                                    <button onClick={exportCSV} className="btn btn-secondary w-full">Export as CSV</button>
+                                    <button onClick={exportPDF} className="btn btn-secondary w-full">Export as PDF</button>
+                                    <a href={`https://testnet.bscscan.com/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full">View on Blockchain</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="card mt-6"><h3 className="card-title">Detailed Results</h3><table className="results-table"><thead><tr><th>Rank</th><th>Candidate</th><th>Party</th><th>Votes</th><th>Percentage</th><th>Progress</th></tr></thead><tbody>{sortedCandidates.map((c, index) => { const percentage = totalVotes > 0 ? (c.votes / totalVotes * 100) : 0; return (<tr key={c.onChainId}><td><div className="rank-badge">#{index + 1}</div></td><td>{c.name}</td><td>{c.party}</td><td>{c.votes}</td><td>{percentage.toFixed(2)}%</td><td><div className="table-progress-bar-container"><div className="table-progress-bar" style={{ width: `${percentage}%` }}></div></div></td></tr>)})}</tbody></table></div>
+                    </div>
+    )
 }
 
 // --- Profile Page and Components ---
@@ -190,8 +219,28 @@ function CreateElectionModal({ onClose, onCreated }) {
         toast.error("Please provide an election title and at least one candidate name.");
         return;
       }
-      // ... (rest of the handleCreate function is the same)
-    };
+      setLoading(true);
+    const createToast = toast.loading("Creating election...");
+    try {
+      const token = localStorage.getItem('token');
+      const payload = { title: form.title, description: form.description, startAt: form.startAt || null, endAt: form.endAt || null };
+      const res = await axios.post(`${API}/api/admin/elections`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.onChainId) {
+        const validCandidates = form.candidates.filter(c => c.name.trim());
+        if (validCandidates.length > 0) {
+          toast.loading(`Adding ${validCandidates.length} candidates...`, { id: createToast });
+          for (const c of validCandidates) {
+            await axios.post(`${API}/api/admin/elections/${res.data.onChainId}/candidates`, { name: c.name, party: c.party }, { headers: { Authorization: `Bearer ${token}` } });
+          }
+        }
+      }
+      toast.success('Election created successfully!', { id: createToast });
+      onCreated();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.msg || 'Failed to create election.', { id: createToast });
+    } finally { setLoading(false); }
+  };
   
     return (
       <div className="modal-overlay">
