@@ -1,5 +1,5 @@
 // client/src/App.js
-import React, { useEffect, useState, createContext, useContext, useCallback } from 'react';
+import React, { useEffect, useState, createContext, useContext, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { ethers } from 'ethers';
@@ -59,7 +59,6 @@ function Navbar() {
     const location = useLocation();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const handleLogout = () => { logout(); toast.success('Logged out successfully'); navigate('/login'); };
-    // UPDATED: More precise check for active link to stop Vote from always glowing
     const getNavLinkClass = (path) => {
         if (path === '/') { return location.pathname === '/' ? 'nav-link active' : 'nav-link'; }
         return location.pathname.startsWith(path) ? 'nav-link active' : 'nav-link';
@@ -106,7 +105,7 @@ function LoginPage() {
 function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'voter', inviteCode: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'user', inviteCode: '' });
   const [recaptchaToken, setRecaptchaToken] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -137,7 +136,7 @@ function RegisterPage() {
         <div className="form-group">
           <label className="form-label">Account Type</label>
           <div className="account-type-group">
-            <label className={`account-type-label ${form.role === 'voter' ? 'selected' : ''}`}><input type="radio" name="role" value="voter" checked={form.role === 'voter'} onChange={handleChange} className="account-type-radio" />Voter</label>
+            <label className={`account-type-label ${form.role === 'user' ? 'selected' : ''}`}><input type="radio" name="role" value="user" checked={form.role === 'user'} onChange={handleChange} className="account-type-radio" />Voter</label>
             <label className={`account-type-label ${form.role === 'admin' ? 'selected' : ''}`}><input type="radio" name="role" value="admin" checked={form.role === 'admin'} onChange={handleChange} className="account-type-radio" />Admin</label>
           </div>
         </div>
@@ -156,30 +155,17 @@ function HomePage() {
   const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [election, setElection] = useState(null);
-  const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [votingFor, setVotingFor] = useState(null); // Tracks which candidate vote is in progress
+  const [votingFor, setVotingFor] = useState(null);
 
   const fetchElectionData = useCallback(async () => {
     try {
+      setLoading(true);
       const res = await axios.get(`${API}/api/elections/active`);
       const activeElection = res.data;
       setElection(activeElection);
-      const provider = getProvider();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, VotingABI, provider);
-      const onChainData = await contract.getElectionBasic(activeElection.onChainId);
-      const count = Number(onChainData[6]);
-      if (count === 0) {
-        setCandidates([]);
-        return;
-      }
-      const promises = Array.from({ length: count }, (_, i) => contract.getCandidate(activeElection.onChainId, i + 1));
-      const results = await Promise.all(promises);
-      const formatted = results.map(c => ({ id: c[0].toString(), name: c[1], party: c[2], votes: Number(c[3]) }));
-      setCandidates(formatted.sort((a, b) => b.votes - a.votes));
     } catch (err) {
       setElection(null);
-      setCandidates([]);
     } finally {
       setLoading(false);
     }
@@ -187,26 +173,25 @@ function HomePage() {
 
   useEffect(() => {
     if (user) {
-      setLoading(true);
       fetchElectionData();
     }
   }, [user, fetchElectionData]);
 
   const handleVote = async (candidate) => {
-    setVotingFor(candidate.id); // Set loading state for this specific button
+    setVotingFor(candidate.onChainId);
     const voteToast = toast.loading(`Casting vote for ${candidate.name}...`);
     try {
       if (!user?.walletAddress) throw new Error('Please connect your wallet first.');
       if (user.hasVotedOn?.[election.onChainId]) throw new Error('You have already voted in this election.');
       const { contract } = await getSignerContract();
       toast.loading('Please approve the transaction in your wallet...', { id: voteToast });
-      const tx = await contract.vote(election.onChainId, candidate.id);
+      const tx = await contract.vote(election.onChainId, candidate.onChainId);
       toast.loading('Submitting your vote to the blockchain...', { id: voteToast });
       const receipt = await tx.wait();
       if (!receipt.hash) throw new Error("Transaction failed after submission.");
       toast.loading('Vote is on-chain! Verifying with server...', { id: voteToast });
       await axios.post(`${API}/api/verify/vote`,
-        { txHash: receipt.hash, electionId: election.onChainId, candidateId: candidate.id },
+        { txHash: receipt.hash, electionId: election.onChainId, candidateId: candidate.onChainId },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
       toast.success('Your vote has been successfully recorded!', { id: voteToast });
@@ -217,18 +202,17 @@ function HomePage() {
       if (err.code === 4001) message = 'Transaction rejected in wallet.';
       toast.error(message, { id: voteToast });
     } finally {
-      setVotingFor(null); // Clear loading state for the button
+      setVotingFor(null);
     }
   };
 
-  const totalVotes = candidates.reduce((sum, c) => sum + c.votes, 0);
   const hasVoted = user && election && user.hasVotedOn?.[election.onChainId];
 
   const ConnectWalletPrompt = () => (
     <>
       <div className="banner warning">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
-        Wallet Required: Please connect your MetaMask wallet to participate in voting.
+        Wallet Required: Please connect your wallet to participate in voting.
       </div>
       <div className="connect-wallet-card">
         <h2>Connect Wallet</h2>
@@ -243,33 +227,34 @@ function HomePage() {
   const renderContent = () => {
     if (loading) return <div className="container text-center"><div className="spinner-lg"></div></div>;
     if (!user?.walletAddress) return <ConnectWalletPrompt />;
-    if (!election) return <div className="text-center"><h2>No Active Election</h2><p>There are no elections available for voting at this time.</p></div>;
+    if (!election) return <div className="text-center card"><h2>No Active Election</h2><p>There are no elections available for voting at this time.</p></div>;
+
+    const totalVotes = election.candidates.reduce((sum, c) => sum + c.votes, 0);
 
     return (
       <>
+        <h1 className="page-title">{election.title}</h1>
         {hasVoted && (
           <div className="banner success">
             You have successfully voted in this election. Thank you for your participation!
           </div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {candidates.map((candidate, index) => {
+          {election.candidates.map((candidate, index) => {
             const percentage = totalVotes > 0 ? (candidate.votes / totalVotes * 100) : 0;
-            const isVoting = votingFor === candidate.id;
+            const isVoting = votingFor === candidate.onChainId;
             return (
-              <div key={candidate.id} className={`candidate-card-vote ${index === 0 ? 'leading' : ''}`}>
+              <div key={candidate.onChainId} className={`candidate-card-vote`}>
                 <div className="candidate-header">
                   <div className="candidate-rank">#{index + 1}</div>
-                  {index === 0 && <div className="candidate-leading-tag">Leading</div>}
                 </div>
                 <h3 className="candidate-name">{candidate.name}</h3>
                 <p className="candidate-party">{candidate.party}</p>
                 <div className="candidate-progress-bar"><div style={{ width: `${percentage}%` }}></div></div>
                 <div className="candidate-stats">
-                  <span>{percentage.toFixed(1)}% of total</span>
-                  <span>{candidate.votes} / {totalVotes} Votes</span>
+                  <span>{percentage.toFixed(1)}%</span>
+                  <span>{candidate.votes} Votes</span>
                 </div>
-                
                 <div className="vote-button-container">
                   <button
                     className="btn btn-primary w-full"
@@ -302,38 +287,33 @@ function HomePage() {
   );
 }
 
-// UPDATED ResultsPage component
 function ResultsPage() {
     const [data, setData] = useState(null);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedElectionId, setSelectedElectionId] = useState('current');
-
-    // NEW: useLocation hook to potentially select an election from URL query
+    const [selectedElectionId, setSelectedElectionId] = useState('');
     const location = useLocation();
     
     const fetchResults = useCallback(async (electionId) => {
         setLoading(true);
-        const url = (electionId === 'current' || !electionId) ? `${API}/api/elections/results` : `${API}/api/elections/results?id=${electionId}`;
+        const url = electionId ? `${API}/api/elections/results?id=${electionId}` : `${API}/api/elections/results`;
         try {
             const res = await axios.get(url);
             setData(res.data);
-        } catch { setData(null); } 
+        } catch { 
+            setData(null); 
+            if (!electionId) toast.error("No live election results to show.");
+        } 
         finally { setLoading(false); }
     }, []);
 
     useEffect(() => {
         axios.get(`${API}/api/elections/history`).then(res => setHistory(res.data)).catch(() => {});
         
-        // Check if an ID is passed in the URL (e.g., from voting history page)
         const queryParams = new URLSearchParams(location.search);
         const specificId = queryParams.get('id');
-        if (specificId) {
-            setSelectedElectionId(specificId);
-            fetchResults(specificId);
-        } else {
-            fetchResults('current');
-        }
+        setSelectedElectionId(specificId || '');
+        fetchResults(specificId);
     }, [location.search, fetchResults]);
 
     const handleSelectionChange = (e) => {
@@ -341,74 +321,98 @@ function ResultsPage() {
         setSelectedElectionId(newId);
         fetchResults(newId);
     };
-
-    const handleRefresh = () => fetchResults(selectedElectionId);
     
-    const exportCSV = () => {
-                const csvData = Papa.unparse(sortedCandidates.map(r => ({ Candidate: r.name, Party: r.party, Votes: r.votes })));
-                const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.setAttribute('download', `${data.title.replace(/\s+/g, '_')}_results.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            };
-        const exportPDF = () => {
-                const doc = new jsPDF();
-                doc.text(data.title, 14, 16);
-                doc.autoTable({ startY: 22, head: [['Rank', 'Candidate', 'Party', 'Votes']], body: sortedCandidates.map((r, i) => [i+1, r.name, r.party, r.votes]) });
-                doc.save(`${data.title.replace(/\s+/g, '_')}_results.pdf`);
-            };
+    const exportCSV = (sortedCandidates) => {
+        if (!data) return;
+        const csvData = Papa.unparse(sortedCandidates.map(r => ({ Candidate: r.name, Party: r.party, Votes: r.votes })));
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', `${data.title.replace(/\s+/g, '_')}_results.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+    
+    const exportPDF = (sortedCandidates) => {
+        if (!data) return;
+        const doc = new jsPDF();
+        doc.text(data.title, 14, 16);
+        doc.autoTable({ startY: 22, head: [['Rank', 'Candidate', 'Party', 'Votes']], body: sortedCandidates.map((r, i) => [i+1, r.name, r.party, r.votes]) });
+        doc.save(`${data.title.replace(/\s+/g, '_')}_results.pdf`);
+    };
 
     if (loading) return <div className="container text-center"><div className="spinner-lg"></div></div>;
     
-    if (!data) return ( <div className="container text-center"><h2>No Results Available</h2><p>There are no finished or active elections to display results for.</p></div> );
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false, }, },
+        scales: {
+            y: { beginAtZero: true, ticks: { color: '#DDDDDD', }, grid: { color: 'rgba(255, 255, 255, 0.1)', }, },
+            x: { ticks: { color: '#DDDDDD', }, grid: { display: false, }, },
+        },
+    };
+
+    if (!data) return (
+      <div className="container">
+          <div className="results-header">
+              <div className="results-title-container"><h1>Election Results</h1></div>
+              <div className="results-header-actions">
+                  <select className="results-dropdown" value={selectedElectionId} onChange={handleSelectionChange}>
+                      <option value="">View Live Election</option>
+                      <optgroup label="Past Elections">
+                        {history.map(h => <option key={h.onChainId} value={h.onChainId}>{h.title}</option>)}
+                      </optgroup>
+                  </select>
+              </div>
+          </div>
+          <div className="card text-center"><h2 className='text-xl font-semibold'>No Election Data</h2><p>There is no live election currently. Select a past election from the dropdown to view its results.</p></div>
+      </div>
+    );
     
     const sortedCandidates = [...(data.results || [])].sort((a, b) => b.votes - a.votes);
     const totalVotes = sortedCandidates.reduce((sum, c) => sum + c.votes, 0);
-    const leadingCandidate = sortedCandidates[0];
-    const leadingMargin = leadingCandidate && sortedCandidates[1] ? ((leadingCandidate.votes - sortedCandidates[1].votes) / totalVotes * 100) : (totalVotes > 0 ? 100 : 0);
+    const chartData = {
+        labels: sortedCandidates.map(s => s.name),
+        datasets:[{ label: 'Votes', data: sortedCandidates.map(s => s.votes), backgroundColor: ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'], borderRadius: 4, }]
+    };
 
     return (
         <div className="container">
             <div className="results-header">
-                {/* FIX: Title now has its own container to prevent layout shifts */}
-                <div className="results-title-container">
-                    <h1>{data.title}</h1>
-                    <div className={`status-tag ${data.status === 'Live' ? 'active' : 'closed'}`}>{data.status}</div>
-                </div>
+                <div className="results-title-container"><h1>{data.title}</h1><div className={`status-tag ${data.status === 'Live' ? 'active' : 'closed'}`}>{data.status}</div></div>
                 <div className="results-header-actions">
                     <select className="results-dropdown" value={selectedElectionId} onChange={handleSelectionChange}>
-                        <option value="current">View Current / Last Finished</option>
+                        <option value="">View Live Election</option>
                         <optgroup label="Past Elections">
                           {history.map(h => <option key={h.onChainId} value={h.onChainId}>{h.title}</option>)}
                         </optgroup>
                     </select>
-                    <button onClick={handleRefresh} className="btn btn-secondary">Refresh</button>
+                    <button onClick={() => fetchResults(selectedElectionId)} className="btn btn-secondary">Refresh</button>
                 </div>
             </div>
             <div className="results-summary-grid">
-                            <div className="summary-card"><div className="summary-card-value">{totalVotes}</div><div className="summary-card-label">Total Votes</div></div><div className="summary-card"><div className="summary-card-value">{sortedCandidates.length}</div><div className="summary-card-label">Candidates</div></div><div className="summary-card"><div className="summary-card-value">{leadingMargin.toFixed(1)}%</div><div className="summary-card-label">Leading Margin</div></div><div className="summary-card"><div className={`summary-card-value ${data.status === 'Live' ? 'live' : ''}`}>{data.status}</div><div className="summary-card-label">Status</div></div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                            <div className="lg:col-span-3 card"><h3 className="card-title">Vote Distribution</h3><div style={{ height: '300px' }}><Bar data={{ labels: sortedCandidates.map(s => s.name), datasets:[{ data: sortedCandidates.map(s => s.votes), backgroundColor: ['#8B5CF6', '#3B82F6', '#10B981'], borderRadius: 4 }] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } } }}/></div></div>
-                            <div className="lg:col-span-2 card">
-                                <h3 className="card-title">Export Results</h3>
-                                <div className="export-buttons">
-                                    <button onClick={exportCSV} className="btn btn-secondary w-full">Export as CSV</button>
-                                    <button onClick={exportPDF} className="btn btn-secondary w-full">Export as PDF</button>
-                                    <a href={`https://testnet.bscscan.com/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full">View on Blockchain</a>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="card mt-6"><h3 className="card-title">Detailed Results</h3><table className="results-table"><thead><tr><th>Rank</th><th>Candidate</th><th>Party</th><th>Votes</th><th>Percentage</th><th>Progress</th></tr></thead><tbody>{sortedCandidates.map((c, index) => { const percentage = totalVotes > 0 ? (c.votes / totalVotes * 100) : 0; return (<tr key={c.onChainId}><td><div className="rank-badge">#{index + 1}</div></td><td>{c.name}</td><td>{c.party}</td><td>{c.votes}</td><td>{percentage.toFixed(2)}%</td><td><div className="table-progress-bar-container"><div className="table-progress-bar" style={{ width: `${percentage}%` }}></div></div></td></tr>)})}</tbody></table></div>
+                <div className="summary-card"><div className="summary-card-value">{totalVotes}</div><div className="summary-card-label">Total Votes</div></div>
+                <div className="summary-card"><div className="summary-card-value">{sortedCandidates.length}</div><div className="summary-card-label">Candidates</div></div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <div className="lg:col-span-3 card"><h3 className="card-title">Vote Distribution</h3><div style={{ position: 'relative', height: '300px' }}><Bar data={chartData} options={chartOptions}/></div></div>
+                <div className="lg:col-span-2 card">
+                    <h3 className="card-title">Export Results</h3>
+                    <div className="export-buttons">
+                        <button onClick={() => exportCSV(sortedCandidates)} className="btn btn-secondary w-full">Export as CSV</button>
+                        <button onClick={() => exportPDF(sortedCandidates)} className="btn btn-secondary w-full">Export as PDF</button>
+                        <a href={`https://testnet.bscscan.com/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full">View on Blockchain</a>
                     </div>
+                </div>
+            </div>
+            <div className="card mt-6"><h3 className="card-title">Detailed Results</h3><table className="results-table"><thead><tr><th>Rank</th><th>Candidate</th><th>Party</th><th>Votes</th><th>Percentage</th><th>Progress</th></tr></thead><tbody>{sortedCandidates.map((c, index) => { const percentage = totalVotes > 0 ? (c.votes / totalVotes * 100) : 0; return (<tr key={c.onChainId}><td><div className="rank-badge">#{index + 1}</div></td><td>{c.name}</td><td>{c.party}</td><td>{c.votes}</td><td>{percentage.toFixed(2)}%</td><td><div className="table-progress-bar-container"><div className="table-progress-bar" style={{ width: `${percentage}%` }}></div></div></td></tr>)})}</tbody></table></div>
+        </div>
     )
 }
 
-
-// UPDATED Profile Components
+// --- THIS IS THE CORRECTED COMPONENT ---
 function ProfilePage() {
   const { user } = useAuth();
   const location = useLocation();
@@ -420,7 +424,12 @@ function ProfilePage() {
   return (
     <div className="container">
       <div className="profile-header"><div className="profile-header-avatar">{userInitial}</div><div className="profile-header-info"><h2>{user.name}</h2><div className="role-tag">{user.role}</div></div></div>
-      <div className="profile-tabs"><Link to="/profile" className={getTabClass('overview')}>Overview</Link><Link to="/profile/wallet" className={getTabClass('wallet')}>Wallet</Link><Link to="/profile/history" className={getTabClass('history')}>Voting History</Link><Link to="/profile/settings" className={getTabClass('settings')}>Settings</Link></div>
+      <div className="profile-tabs">
+        <Link to="/profile" className={getTabClass('overview')}>Overview</Link>
+        <Link to="/profile/wallet" className={getTabClass('wallet')}>Wallet</Link>
+        <Link to="/profile/history" className={getTabClass('history')}>Voting History</Link>
+        <Link to="/profile/settings" className={getTabClass('settings')}>Settings</Link>
+      </div>
       <div className="profile-content"><Outlet /></div>
     </div>
   );
@@ -428,7 +437,7 @@ function ProfilePage() {
 
 function ProfileOverview() {
     const { user } = useAuth();
-    return (<div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><div className="card"><h3 className="card-title">Account Information</h3><div className="profile-info-grid"><span>Full Name</span><strong>{user.name}</strong><span>Email</span><strong>{user.email}</strong><span>Role</span><strong>{user.role}</strong><span>Member Since</span><strong>Recently</strong></div></div><div><div className="card"><h3 className="card-title">Voting Statistics</h3><div className="profile-info-grid"><span>Elections Participated</span><strong>{user.hasVotedOn ? Object.keys(user.hasVotedOn).length : 0}</strong><span>Wallet Status</span>{user.walletAddress ? <strong className="text-green">Connected</strong> : <strong className="text-red">Not Connected</strong>}</div></div><div className="card mt-6"><h3 className="card-title">Quick Actions</h3><div className="quick-actions-list"><Link to="/">Vote in Elections</Link><Link to="/results">View Results</Link>{user.role === 'admin' && <Link to="/admin">Admin Dashboard</Link>}</div></div></div></div>);
+    return (<div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><div className="card"><h3 className="card-title">Account Information</h3><div className="profile-info-grid"><span>Full Name</span><strong>{user.name}</strong><span>Email</span><strong>{user.email}</strong><span>Role</span><strong>{user.role}</strong></div></div><div><div className="card"><h3 className="card-title">Voting Statistics</h3><div className="profile-info-grid"><span>Elections Participated</span><strong>{user.hasVotedOn ? Object.keys(user.hasVotedOn).length : 0}</strong><span>Wallet Status</span>{user.walletAddress ? <strong className="text-green">Connected</strong> : <strong className="text-red">Not Connected</strong>}</div></div><div className="card mt-6"><h3 className="card-title">Quick Actions</h3><div className="quick-actions-list"><Link to="/">Vote in Elections</Link><Link to="/results">View Results</Link>{user.role === 'admin' && <Link to="/admin">Admin Dashboard</Link>}</div></div></div></div>);
 }
 
 function ProfileWallet() {
@@ -472,7 +481,7 @@ function ProfileWallet() {
   };
 
   const disconnectWallet = async () => {
-    if (!window.confirm("Are you sure?")) return;
+    if (!window.confirm("Are you sure you want to disconnect your wallet?")) return;
     const toastId = toast.loading("Disconnecting wallet...");
     try {
       const token = localStorage.getItem('token');
@@ -519,8 +528,6 @@ function ProfileVotingHistory() {
     }, []);
 
     if (loading) return <div className="spinner-lg mx-auto"></div>;
-
-    // Filter elections where the user has voted
     const votedElections = elections.filter(e => user.hasVotedOn?.[e.onChainId]);
     
     if (votedElections.length === 0) {
@@ -540,11 +547,7 @@ function ProfileVotingHistory() {
             <div className="history-list">
                 {votedElections.map(e => (
                     <div key={e.onChainId} className="history-item">
-                        <div className="history-item-info">
-                            <strong>{e.title}</strong>
-                            <span>Voted on: {new Date(e.endAt || e.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        {/* Navigate to the specific result page for that election */}
+                        <div className="history-item-info"><strong>{e.title}</strong><span>Voted on: {new Date(e.createdAt).toLocaleDateString()}</span></div>
                         <button className="btn btn-secondary" onClick={() => navigate(`/results?id=${e.onChainId}`)}>View Results</button>
                     </div>
                 ))}
@@ -553,6 +556,7 @@ function ProfileVotingHistory() {
     );
 }
 
+// --- THIS IS THE RESTORED COMPONENT ---
 function ProfileSettings() {
     const { user, setUser, logout } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
@@ -561,7 +565,8 @@ function ProfileSettings() {
 
     const handleSave = (e) => {
         e.preventDefault();
-        // Here you would typically make an API call to update user info
+        // In a real app, you'd make an API call to update the user info.
+        // For this demo, we'll just update the local state.
         setUser({...user, ...form});
         toast.success("Profile updated!");
         setIsEditing(false);
@@ -571,7 +576,7 @@ function ProfileSettings() {
         <div className="max-w-lg mx-auto">
             <div className="card">
                 <h3 className="card-title">Account Settings</h3>
-                <p>Update your personal information and preferences</p>
+                <p>Update your personal information and preferences.</p>
                 <form onSubmit={handleSave}>
                     <div className="form-group">
                         <label className="form-label">Full Name</label>
@@ -597,16 +602,15 @@ function ProfileSettings() {
                 <div className="danger-zone-action">
                     <div>
                         <strong>Log Out of Account</strong>
-                        <p>Logging out will require you to sign in again. Your wallet connection will remain active.</p>
+                        <p>Logging out will require you to sign in again.</p>
                     </div>
-                    <button className="btn btn-danger" onClick={() => { logout(); navigate('/login'); }}>Log Out of Account</button>
+                    <button className="btn btn-danger" onClick={() => { logout(); navigate('/login'); }}>Log Out</button>
                 </div>
             </div>
         </div>
     );
 }
 
-// UPDATED Admin Components
 function AdminPage() {
     const [elections, setElections] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -618,27 +622,33 @@ function AdminPage() {
         setLoading(true);
         try { const res = await axios.get(`${API}/api/elections`); setElections(res.data); } 
         catch { toast.error('Failed to load elections'); }
-        setLoading(false);
+        finally { setLoading(false); }
     }, []);
 
     useEffect(() => { loadElections(); }, [loadElections]);
 
     const now = new Date();
-    // Logic is now consistent with the backend:
-    const activeElections = elections.filter(e => !e.closed && (!e.endAt || new Date(e.endAt) > now));
+    const activeElections = elections.filter(e => !e.closed && (!e.endAt || new Date(e.endAt) > now) && (!e.startAt || new Date(e.startAt) <= now));
+    const upcomingElections = elections.filter(e => !e.closed && e.startAt && new Date(e.startAt) > now);
     const historyElections = elections.filter(e => e.closed || (e.endAt && new Date(e.endAt) <= now));
-    const totalCandidates = elections.reduce((sum, e) => sum + (e.candidates?.length || 0), 0);
 
     return (
         <div className="container">
             <div className="admin-header"><h1>Admin Dashboard</h1><button className="btn btn-primary" onClick={() => setModalOpen(true)}>+ Create Election</button></div>
-            <div className="admin-summary-grid"> <div className="summary-card"><div className="summary-card-value">{elections.length}</div><div className="summary-card-label">Total Elections</div></div><div className="summary-card"><div className="summary-card-value">{activeElections.length}</div><div className="summary-card-label">Active Elections</div></div><div className="summary-card"><div className="summary-card-value">{historyElections.length}</div><div className="summary-card-label">Closed Elections</div></div><div className="summary-card"><div className="summary-card-value">{totalCandidates}</div><div className="summary-card-label">Total Candidates</div></div> </div>
+            <div className="admin-summary-grid"> <div className="summary-card"><div className="summary-card-value">{elections.length}</div><div className="summary-card-label">Total Elections</div></div><div className="summary-card"><div className="summary-card-value">{activeElections.length}</div><div className="summary-card-label">Active Elections</div></div><div className="summary-card"><div className="summary-card-value">{upcomingElections.length}</div><div className="summary-card-label">Upcoming</div></div><div className="summary-card"><div className="summary-card-value">{historyElections.length}</div><div className="summary-card-label">Finished</div></div> </div>
             <div className="admin-tabs">
-                <button className={activeTab === 'active' ? 'active' : ''} onClick={() => setActiveTab('active')}>Active Elections ({activeElections.length})</button>
-                <button className={activeTab === 'history' ? 'active' : ''} onClick={() => setActiveTab('history')}>Election History ({historyElections.length})</button>
+                <button className={activeTab === 'active' ? 'active' : ''} onClick={() => setActiveTab('active')}>Active ({activeElections.length})</button>
+                <button className={activeTab === 'upcoming' ? 'active' : ''} onClick={() => setActiveTab('upcoming')}>Upcoming ({upcomingElections.length})</button>
+                <button className={activeTab === 'history' ? 'active' : ''} onClick={() => setActiveTab('history')}>History ({historyElections.length})</button>
             </div>
             <div className="admin-content">
-                {loading ? <div className="spinner-lg"></div> : <ElectionList isHistory={activeTab === 'history'} elections={activeTab === 'active' ? activeElections : historyElections} onViewDetails={setDetailsModal} />}
+                {loading ? <div className="spinner-lg"></div> : (
+                    <>
+                        {activeTab === 'active' && <ElectionList elections={activeElections} onViewDetails={setDetailsModal} onAction={loadElections} />}
+                        {activeTab === 'upcoming' && <ElectionList elections={upcomingElections} onViewDetails={setDetailsModal} onAction={loadElections} />}
+                        {activeTab === 'history' && <ElectionList elections={historyElections} isHistory onViewDetails={setDetailsModal} onAction={loadElections} />}
+                    </>
+                )}
             </div>
             {modalOpen && <CreateElectionModal onClose={() => setModalOpen(false)} onCreated={loadElections} />}
             {detailsModal && <ElectionDetailsModal election={detailsModal} onClose={() => setDetailsModal(null)} />}
@@ -646,25 +656,57 @@ function AdminPage() {
     );
 }
 
-function ElectionList({ elections, onViewDetails, isHistory }) {
+function ElectionList({ elections, onViewDetails, isHistory, onAction }) {
     if (elections.length === 0) return <p>No elections to display in this section.</p>;
     
+    const handleClose = async (election) => {
+        if (!window.confirm(`Are you sure you want to close the election "${election.title}"? This cannot be undone.`)) return;
+        const toastId = toast.loading("Closing election...");
+        try {
+            const token = localStorage.getItem('token');
+            await axios.post(`${API}/api/admin/elections/${election.onChainId}/close`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            toast.success("Election closed.", { id: toastId });
+            onAction();
+        } catch (err) {
+            toast.error(err.response?.data?.msg || "Failed to close election.", { id: toastId });
+        }
+    };
+
+    const handleDelete = async (election) => {
+        if (!window.confirm(`DELETE "${election.title}"? This only removes it from the database, not the blockchain.`)) return;
+        const toastId = toast.loading("Deleting election...");
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(`${API}/api/admin/elections/${election._id}`, { headers: { Authorization: `Bearer ${token}` } });
+            toast.success("Election deleted from DB.", { id: toastId });
+            onAction();
+        } catch (err) {
+            toast.error(err.response?.data?.msg || "Failed to delete.", { id: toastId });
+        }
+    };
+
     return (
         <div className="grid grid-cols-1 gap-6">
             {elections.map(e => {
-                const status = e.closed ? "CLOSED" : (e.endAt && new Date(e.endAt) < new Date() ? "FINISHED" : "ACTIVE");
+                const now = new Date();
+                let status = "SCHEDULED";
+                let statusClass = "scheduled";
+                if (e.closed) { status = "CLOSED"; statusClass = "closed"; }
+                else if (e.endAt && new Date(e.endAt) < now) { status = "FINISHED"; statusClass = "closed"; }
+                else if (!e.startAt || new Date(e.startAt) <= now) { status = "ACTIVE"; statusClass = "active"; }
+                
                 return (
-                    <div className="admin-election-card" key={e.onChainId}>
+                    <div className="admin-election-card" key={e._id}>
                         <div className="admin-election-info">
                             <h3>{e.title}</h3>
-                            <div className={`status-tag ${status !== 'ACTIVE' ? 'closed' : 'active'}`}>{status}</div>
-                            <div className="admin-election-meta"><span>On-chain ID: {e.onChainId}</span><span>Candidates: {e.candidates?.length || 0}</span><span>Total Votes: {e.votesTotal || 0}</span></div>
+                            <div className={`status-tag ${statusClass}`}>{status}</div>
+                            <div className="admin-election-meta"><span>On-chain ID: {e.onChainId}</span><span>Candidates: {e.candidates?.length || 0}</span><span>Votes: {e.votesTotal || 0}</span></div>
                         </div>
                         <div className="admin-election-actions">
                             <button onClick={() => onViewDetails(e)} className="btn btn-secondary">Details</button>
                             <a href={`https://testnet.bscscan.com/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">Blockchain</a>
-                            {/* Only show the Close button if the election is ACTUALLY active */}
-                            {status === 'ACTIVE' && <button className="btn btn-danger">Close</button>}
+                            {status === 'ACTIVE' && <button onClick={() => handleClose(e)} className="btn btn-warning">Close</button>}
+                            <button onClick={() => handleDelete(e)} className="btn btn-danger">Delete</button>
                         </div>
                     </div>
                 );
@@ -672,21 +714,14 @@ function ElectionList({ elections, onViewDetails, isHistory }) {
         </div>
     );
 }
-/* function ElectionList({ elections, onViewDetails }) {
-    if (elections.length === 0) return <p>No elections to display in this section.</p>;
-    return (<div className="grid grid-cols-1 gap-6">{elections.map(e => <div className="admin-election-card" key={e.onChainId}><div className="admin-election-info"><h3>{e.title}</h3><div className={`status-tag ${!e.closed ? 'active' : 'closed'}`}>{e.closed ? "CLOSED" : "ACTIVE"}</div><div className="admin-election-meta"><span>On-chain ID: {e.onChainId}</span><span>Candidates: {e.candidates?.length || 0}</span><span>Total Votes: {e.votesTotal || 0}</span></div></div><div className="admin-election-actions"><button onClick={() => onViewDetails(e)} className="btn btn-secondary">Details</button><a href={`https://testnet.bscscan.com/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">Blockchain</a>{!e.closed && <button className="btn btn-danger">Close</button>}</div></div>)}</div>);
- */
 
 function ElectionDetailsModal({ election, onClose }){
     return (
       <div className="modal-overlay">
         <div className="modal-content">
-          <div className="modal-header"><h3>{election.title}</h3><button onClick={onClose} className="modal-close-btn">&times;</button></div>
+          <div className="modal-header"><h3>{election.title}</h3><button type="button" onClick={onClose} className="modal-close-btn">&times;</button></div>
           <div className="modal-body">
-            {/* Proactive UI: Better message for empty description */}
-            <p className={!election.description ? 'text-muted' : ''}>
-                {election.description || "No description was provided for this election."}
-            </p>
+            <p className={!election.description ? 'text-muted' : ''}>{election.description || "No description was provided for this election."}</p>
             <div className="details-grid">
                 <span>On-Chain ID</span><strong>{election.onChainId}</strong>
                 <span>Status</span><strong>{election.closed ? 'Closed' : 'Active'}</strong>
@@ -697,15 +732,10 @@ function ElectionDetailsModal({ election, onClose }){
             <div className="candidate-list-modal">
                 {election.candidates?.length > 0 ? (
                     <ul>{election.candidates.map(c => <li key={c.onChainId}><span>{c.name} ({c.party || 'N/A'})</span><strong>{c.votes} votes</strong></li>)}</ul>
-                ) : (
-                    // Proactive UI: Better empty state
-                    <div className="modal-empty-state">
-                        <p>No candidates were found for this election.</p>
-                    </div>
-                )}
+                ) : ( <div className="modal-empty-state"><p>No candidates were found for this election.</p></div> )}
             </div>
           </div>
-          <div className="modal-footer"><button className="btn btn-secondary" onClick={onClose}>Close</button></div>
+          <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={onClose}>Close</button></div>
         </div>
       </div>
     );
@@ -714,82 +744,102 @@ function ElectionDetailsModal({ election, onClose }){
 function CreateElectionModal({ onClose, onCreated }) {
     const [form, setForm] = useState({ title: '', description: '', startAt: '', endAt: '', candidates: [{ name: '', party: '' }] });
     const [loading, setLoading] = useState(false);
+    const abortControllerRef = useRef(null);
 
     const handleCandidateChange = (index, field, value) => { const newCandidates = [...form.candidates]; newCandidates[index][field] = value; setForm({ ...form, candidates: newCandidates }); };
     const addCandidateField = () => setForm({ ...form, candidates: [...form.candidates, { name: '', party: '' }] });
     const removeCandidateField = (index) => { const newCandidates = form.candidates.filter((_, i) => i !== index); setForm({ ...form, candidates: newCandidates }); };
 
-    // --- NEW: VALIDATION LOGIC ---
-    const isFormValid = () => {
-        // Title must not be empty
-        if (!form.title.trim()) {
-            return false;
-        }
-        // There must be at least one candidate with a non-empty name
-        if (!form.candidates.some(c => c.name.trim())) {
-            return false;
-        }
-        return true;
-    };
+    const isFormValid = () => form.title.trim() && form.candidates.some(c => c.name.trim());
     
     const handleCreate = async () => {
-      if (!isFormValid()) {
-        toast.error("Please provide an election title and at least one candidate name.");
-        return;
-      }
+      if (!isFormValid()) { toast.error("Please provide an election title and at least one candidate name."); return; }
+      
       setLoading(true);
-    const createToast = toast.loading("Creating election...");
-    try {
-      const token = localStorage.getItem('token');
-      const payload = { title: form.title, description: form.description, startAt: form.startAt || null, endAt: form.endAt || null };
-      const res = await axios.post(`${API}/api/admin/elections`, payload, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.data.onChainId) {
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+      const createToast = toast.loading("Creating election on the blockchain...");
+      
+      try {
+        const token = localStorage.getItem('token');
         const validCandidates = form.candidates.filter(c => c.name.trim());
-        if (validCandidates.length > 0) {
-          toast.loading(`Adding ${validCandidates.length} candidates...`, { id: createToast });
-          for (const c of validCandidates) {
-            await axios.post(`${API}/api/admin/elections/${res.data.onChainId}/candidates`, { name: c.name, party: c.party }, { headers: { Authorization: `Bearer ${token}` } });
+        const payload = { title: form.title, description: form.description, startAt: form.startAt || null, endAt: form.endAt || null, candidates: validCandidates };
+        
+        const res = await axios.post(`${API}/api/admin/elections`, payload, { headers: { Authorization: `Bearer ${token}` }, signal });
+        
+        if (res.data.onChainId) {
+          toast.loading(`Adding ${validCandidates.length} candidate(s)...`, { id: createToast });
+          for (const candidate of validCandidates) {
+            await axios.post(
+              `${API}/api/admin/elections/${res.data.onChainId}/candidates`, 
+              { name: candidate.name, party: candidate.party }, 
+              { headers: { Authorization: `Bearer ${token}` }, signal }
+            );
           }
         }
+
+        toast.success('Election created successfully!', { id: createToast });
+        onCreated();
+        onClose();
+      } catch (err) {
+        if (axios.isCancel(err)) {
+          toast.error('Election creation cancelled.', { id: createToast });
+          onClose();
+        } else {
+          toast.error(err.response?.data?.msg || 'Failed to create election.', { id: createToast });
+        }
+      } finally {
+        setLoading(false);
+        abortControllerRef.current = null;
       }
-      toast.success('Election created successfully!', { id: createToast });
-      onCreated();
-      onClose();
-    } catch (err) {
-      toast.error(err.response?.data?.msg || 'Failed to create election.', { id: createToast });
-    } finally { setLoading(false); }
-  };
+    };
+
+    const handleCancelCreation = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+    };
   
     return (
       <div className="modal-overlay">
         <div className="modal-content">
-          <div className="modal-header"><h3>Create New Election</h3><button onClick={onClose} className="modal-close-btn">&times;</button></div>
+          <div className="modal-header"><h3>Create New Election</h3><button type="button" onClick={loading ? handleCancelCreation : onClose} className="modal-close-btn">&times;</button></div>
           <div className="modal-body">
-            <div className="form-group"><label className="form-label">Election Title *</label><input className="form-control" placeholder="e.g., Student Council Election 2025" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-            <div className="form-group"><label className="form-label">Description</label><textarea className="form-control" placeholder="Brief description of the election..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}></textarea></div>
-            <div className="grid grid-cols-2 gap-4"><div className="form-group"><label className="form-label">Start Date (Optional)</label><input type="datetime-local" className="form-control" value={form.startAt} onChange={e => setForm({ ...form, startAt: e.target.value })} /></div><div className="form-group"><label className="form-label">End Date (Optional)</label><input type="datetime-local" className="form-control" value={form.endAt} onChange={e => setForm({ ...form, endAt: e.target.value })} /></div></div>
+            <div className="form-group"><label className="form-label">Election Title *</label><input className="form-control" placeholder="e.g., Student Council Election 2025" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} disabled={loading} /></div>
+            <div className="form-group"><label className="form-label">Description</label><textarea className="form-control" placeholder="Brief description of the election..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} disabled={loading}></textarea></div>
+            <div className="grid grid-cols-2 gap-4"><div className="form-group"><label className="form-label">Start Date (Optional)</label><input type="datetime-local" className="form-control" value={form.startAt} onChange={e => setForm({ ...form, startAt: e.target.value })} disabled={loading} /></div><div className="form-group"><label className="form-label">End Date (Optional)</label><input type="datetime-local" className="form-control" value={form.endAt} onChange={e => setForm({ ...form, endAt: e.target.value })} disabled={loading}/></div></div>
             <div className="form-group">
                 <label className="form-label">Candidates *</label>
                 {form.candidates.map((c, i) => (
                     <div key={i} className="candidate-input-row">
-                        <input className="form-control" placeholder="Candidate Name *" value={c.name} onChange={e => handleCandidateChange(i, 'name', e.target.value)} />
-                        <input className="form-control" placeholder="Party (Optional)" value={c.party} onChange={e => handleCandidateChange(i, 'party', e.target.value)} />
-                        {form.candidates.length > 1 && <button onClick={() => removeCandidateField(i)} className="btn-remove-candidate">&times;</button>}
+                        <input className="form-control" placeholder="Candidate Name *" value={c.name} onChange={e => handleCandidateChange(i, 'name', e.target.value)} disabled={loading} />
+                        <input className="form-control" placeholder="Party (Optional)" value={c.party} onChange={e => handleCandidateChange(i, 'party', e.target.value)} disabled={loading} />
+                        {!loading && form.candidates.length > 1 && <button type="button" onClick={() => removeCandidateField(i)} className="btn-remove-candidate">&times;</button>}
                     </div>
                 ))}
-                <button onClick={addCandidateField} className="btn btn-secondary w-full mt-2">+ Add Candidate</button>
+                <button type="button" onClick={addCandidateField} className="btn btn-secondary w-full mt-2" disabled={loading}>+ Add Candidate</button>
             </div>
           </div>
           <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-              {/* Button is now disabled based on validation */}
-              <button className="btn btn-primary" onClick={handleCreate} disabled={loading || !isFormValid()}>{loading ? <span className="spinner" /> : "Create Election"}</button>
+              {loading ? (
+                <button type="button" className="btn btn-danger" onClick={handleCancelCreation}>
+                  Cancel Creation
+                </button>
+              ) : (
+                <>
+                  <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                  <button type="button" className="btn btn-primary" onClick={handleCreate} disabled={!isFormValid()}>
+                    Create Election
+                  </button>
+                </>
+              )}
           </div>
         </div>
       </div>
     );
 }
-// --- App Root and Routing ---
+
+// --- THIS IS THE CORRECTED ROUTING SECTION ---
 export default function App() {
   return (
     <AuthProvider>
